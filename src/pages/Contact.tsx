@@ -13,6 +13,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { useState } from "react";
 
 const contactInfo = [
   { icon: MapPin, label: "Office Address", value: "Salt Lake, Sector V, Kolkata, West Bengal 700091" },
@@ -49,9 +50,51 @@ const faqs = [
 ];
 
 const Contact = () => {
-  const handleSubmit = (e: React.FormEvent) => {
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    toast.success("Thank you! We'll get back to you within 24 hours.");
+    const accessKey = import.meta.env.VITE_WEB3_FORMS as string | undefined;
+    if (!accessKey) {
+      toast.error("Form service not configured. Missing VITE_WEB3_FORMS.");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const form = e.currentTarget;
+      const formData = new FormData(form);
+
+      const payload: Record<string, string | boolean> = {
+        access_key: accessKey,
+        from_name: "AR Land & Reality Partner",
+        subject: "New message from Contact page",
+        botcheck: false,
+      };
+
+      formData.forEach((value, key) => {
+        payload[key] = String(value);
+      });
+
+      const res = await fetch("https://api.web3forms.com/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (res.ok) {
+        toast.success("Thanks! Your message has been sent.");
+        form.reset();
+      } else {
+        toast.error(json?.message || "Failed to send message. Please try again.");
+      }
+    } catch {
+      toast.error("Network error. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -80,35 +123,37 @@ const Contact = () => {
               <div className="bg-card rounded-xl border p-6 sm:p-8 shadow-md flex flex-col flex-1">
                 <h2 className="font-display text-xl sm:text-2xl font-bold mb-6">Send Us a Message</h2>
                 <form onSubmit={handleSubmit} className="flex flex-col flex-1 gap-4">
+                  <input type="checkbox" name="botcheck" style={{ display: "none" }} tabIndex={-1} aria-hidden="true" />
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="text-xs font-medium text-muted-foreground mb-1 block">Full Name</label>
-                      <Input placeholder="Your name" required />
+                      <Input name="full_name" placeholder="Your name" required />
                     </div>
                     <div>
                       <label className="text-xs font-medium text-muted-foreground mb-1 block">Phone Number</label>
-                      <Input placeholder="+91 XXXXX XXXXX" required />
+                      <Input name="phone" placeholder="+91 XXXXX XXXXX" required />
                     </div>
                   </div>
                   <div>
                     <label className="text-xs font-medium text-muted-foreground mb-1 block">Email Address</label>
-                    <Input type="email" placeholder="you@example.com" required />
+                    <Input name="email" type="email" placeholder="you@example.com" required />
                   </div>
                   <div>
                     <label className="text-xs font-medium text-muted-foreground mb-1 block">Subject</label>
-                    <Input placeholder="e.g. Inquiry about property in Rajarhat" required />
+                    <Input name="subject" placeholder="e.g. Inquiry about property in Rajarhat" required />
                   </div>
                   {/* Message fills remaining height */}
                   <div className="flex flex-col flex-1 min-h-0">
                     <label className="text-xs font-medium text-muted-foreground mb-1 block">Message</label>
                     <Textarea
+                      name="message"
                       placeholder="Tell us about your requirements..."
                       required
                       className="flex-1 resize-none min-h-[140px]"
                     />
                   </div>
-                  <Button type="submit" variant="accent" size="lg" className="w-full">
-                    Send Message
+                  <Button type="submit" variant="accent" size="lg" className="w-full" disabled={submitting}>
+                    {submitting ? "Sending…" : "Send Message"}
                   </Button>
                 </form>
               </div>
