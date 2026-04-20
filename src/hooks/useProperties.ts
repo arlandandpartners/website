@@ -175,6 +175,48 @@ export const useUpdatePropertyStatus = () => {
   });
 };
 
+export interface DBUser {
+  id: string;
+  user_id: string;
+  full_name: string | null;
+  phone: string | null;
+  created_at: string;
+  listings: number;
+}
+
+export const useAllUsers = () => {
+  return useQuery({
+    queryKey: ["admin-users"],
+    queryFn: async () => {
+      // Fetch all profiles
+      const { data: profiles, error } = await supabase
+        .from("profiles")
+        .select("id, user_id, full_name, phone, created_at")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      if (!profiles || profiles.length === 0) return [] as DBUser[];
+
+      // Fetch property counts per user
+      const userIds = profiles.map((p) => p.user_id);
+      const { data: props } = await supabase
+        .from("properties")
+        .select("created_by")
+        .in("created_by", userIds);
+
+      // Count listings per user_id
+      const countMap: Record<string, number> = {};
+      (props ?? []).forEach((p) => {
+        if (p.created_by) countMap[p.created_by] = (countMap[p.created_by] ?? 0) + 1;
+      });
+
+      return profiles.map((p) => ({
+        ...p,
+        listings: countMap[p.user_id] ?? 0,
+      })) as DBUser[];
+    },
+  });
+};
+
 export const WB_DISTRICTS = [
   "Kolkata", "Howrah", "Hooghly", "North 24 Parganas", "South 24 Parganas",
   "Nadia", "Murshidabad", "Bardhaman", "Birbhum", "Bankura",

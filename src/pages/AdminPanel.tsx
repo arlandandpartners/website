@@ -8,10 +8,9 @@ import {
   Eye, MapPin, Phone, Hash, Calendar, IndianRupee, CheckCircle2, XCircle, Clock,
 } from "lucide-react";
 import AdminAddListing from "@/components/admin/AdminAddListing";
-import { useAllPropertiesAdmin, useDeleteProperty, formatPrice, DBProperty, useUpdatePropertyStatus } from "@/hooks/useProperties";
+import { useAllPropertiesAdmin, useDeleteProperty, formatPrice, DBProperty, useUpdatePropertyStatus, useAllUsers } from "@/hooks/useProperties";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAllTransactions, Transaction, useUpdateTransactionStatus } from "@/hooks/useTransactions";
-import { sampleUsers } from "@/data/sampleData";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -145,6 +144,7 @@ const AdminPanel = () => {
 
   const { data: properties = [], isLoading } = useAllPropertiesAdmin();
   const { data: transactions = [], isLoading: txnLoading } = useAllTransactions();
+  const { data: users = [], isLoading: usersLoading } = useAllUsers();
   const deleteMutation = useDeleteProperty();
   const updateStatus = useUpdatePropertyStatus();
 
@@ -400,43 +400,88 @@ const AdminPanel = () => {
         {/* USERS */}
         {tab === "users" && (
           <div className="space-y-4">
-            <h1 className="font-display text-2xl font-bold">Manage Users</h1>
-            <div className="md:hidden space-y-3">
-              {sampleUsers.map((u) => (
-                <div key={u.id} className="bg-card border rounded-xl p-4">
-                  <p className="font-medium">{u.name}</p>
-                  <p className="text-sm text-muted-foreground">{u.email}</p>
-                  <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-                    <span>{u.phone}</span>
-                    <span>{u.listings} listings</span>
-                  </div>
-                </div>
-              ))}
+            <div className="flex items-center justify-between">
+              <h1 className="font-display text-2xl font-bold">Manage Users</h1>
+              <span className="text-sm text-muted-foreground">{users.length} registered</span>
             </div>
-            <div className="hidden md:block bg-card border rounded-xl overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-muted">
-                  <tr>
-                    <th className="text-left p-3">Name</th>
-                    <th className="text-left p-3">Email</th>
-                    <th className="text-left p-3">Phone</th>
-                    <th className="text-left p-3">Joined</th>
-                    <th className="text-left p-3">Listings</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sampleUsers.map((u) => (
-                    <tr key={u.id} className="border-t">
-                      <td className="p-3 font-medium">{u.name}</td>
-                      <td className="p-3">{u.email}</td>
-                      <td className="p-3">{u.phone}</td>
-                      <td className="p-3 text-muted-foreground">{u.joined}</td>
-                      <td className="p-3">{u.listings}</td>
-                    </tr>
+
+            {usersLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 w-full rounded-xl" />)}
+              </div>
+            ) : users.length === 0 ? (
+              <div className="text-center py-20 text-muted-foreground">
+                <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                <p>No registered users yet.</p>
+              </div>
+            ) : (
+              <>
+                {/* Mobile cards */}
+                <div className="md:hidden space-y-3">
+                  {users.map((u) => (
+                    <div key={u.id} className="bg-card border rounded-xl p-4">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          <User className="h-4 w-4 text-primary" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{u.full_name || "—"}</p>
+                          <p className="text-xs text-muted-foreground font-mono truncate">{u.user_id}</p>
+                        </div>
+                      </div>
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>{u.phone || "No phone"}</span>
+                        <span>{u.listings} listing{u.listings !== 1 ? "s" : ""}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Joined {new Date(u.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                      </p>
+                    </div>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </div>
+
+                {/* Desktop table */}
+                <div className="hidden md:block bg-card border rounded-xl overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted">
+                      <tr>
+                        <th className="text-left p-3">Name</th>
+                        <th className="text-left p-3">User ID</th>
+                        <th className="text-left p-3">Phone</th>
+                        <th className="text-left p-3">Joined</th>
+                        <th className="text-left p-3">Listings</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {users.map((u) => (
+                        <tr key={u.id} className="border-t hover:bg-muted/30">
+                          <td className="p-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                <User className="h-3.5 w-3.5 text-primary" />
+                              </div>
+                              <span className="font-medium">{u.full_name || <span className="text-muted-foreground italic">No name</span>}</span>
+                            </div>
+                          </td>
+                          <td className="p-3 text-muted-foreground font-mono text-xs max-w-[160px] truncate">{u.user_id}</td>
+                          <td className="p-3 text-muted-foreground">{u.phone || "—"}</td>
+                          <td className="p-3 text-muted-foreground">
+                            {new Date(u.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                          </td>
+                          <td className="p-3">
+                            <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                              u.listings > 0 ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                            }`}>
+                              {u.listings}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </div>
         )}
 
